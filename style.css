@@ -1,0 +1,13 @@
+body {
+    font-family: "Tahoma";
+    background-color: #2c0847;
+    color: #08d86d;
+}
+
+tr:nth-child(odd) {
+    background-color: #4209B3;
+}
+
+tr:nth-child(even) {
+    background-color: #340b84;
+}

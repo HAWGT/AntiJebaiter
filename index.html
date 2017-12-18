@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>AntiJebaiter</title>
+    <link rel="stylesheet" type="text/css" href="style.css">
+</head>
+
+<body>
+    <center>
+        <h1>AntiJebaiter</h1>
+        <h6>Leave in background</h6>
+    </center>
+    <script>
+        const fs = require('fs')
+
+        const moment = require('moment')
+
+        const chokidar = require('chokidar')
+
+        const SteamApi = require('steam-api');
+
+        const SteamID = require('steamid')
+
+        const request = require('request');
+
+        const remote = require('electron').remote;
+
+        var contents = fs.readFileSync("./config.json", 'utf-8')
+
+        var config = JSON.parse(contents)
+
+        var serverlog_file = config.serverlog
+		
+        var playerIDA = config.playerA
+        var playerIDB = config.playerB
+
+        const spawn = require('child_process').spawn;
+
+        var path = require('path');
+
+        var child_process = require('child_process');
+
+        function StartWatcher(path) {
+            var chokidar = require("chokidar");
+
+            var watcher = chokidar.watch(path, {
+                ignored: /[\/\\]\./,
+                persistent: true
+            });
+
+            function onWatcherReady() {
+                console.info('From here can you check for real changes, the initial scan has been completed.');
+            }
+
+            // Declare the listeners of the watcher
+            watcher
+                .on('add', function(path) {
+                    console.log('File', path, 'has been added');
+                })
+                .on('addDir', function(path) {
+                    console.log('Directory', path, 'has been added');
+                })
+                .on('change', function(path) {
+                    console.log('File', path, 'has been changed');
+                })
+                .on('unlink', function(path) {
+                    console.log('File', path, 'has been removed');
+                })
+                .on('unlinkDir', function(path) {
+                    console.log('Directory', path, 'has been removed');
+                })
+                .on('error', function(error) {
+                    console.log('Error happened', error);
+                })
+                .on('ready', onWatcherReady)
+                .on('raw', function(event, path, details) {
+                    // This event should be triggered everytime something happens.
+                    if (event == 'change') {
+                        location.reload();
+                    }
+                    console.log('Raw event info:', event, path, details);
+                });
+        }
+
+
+        function parseServerLog() {
+            findLast = false;
+            let lines = [];
+            fs.readFileSync(serverlog_file).toString().split("\n").forEach(function(line) {
+                if (line === '') return;
+                lines.push(line);
+            });
+            if (lines.length == 0) return [];
+            if (findLast) {
+                for (let i = lines.length - 1; i >= 0; i--) {
+                    let line = lines[i];
+                    let steamIds = parseServerLogLine(line);
+                    if (steamIds.length > 0) return steamIds;
+                }
+                return [];
+            } else {
+                let lastLine = lines[lines.length - 1];
+                return parseServerLogLine(lastLine);
+            }
+        }
+
+        function parseServerLogLine(line) {
+            let regex = /(.*?) - (.*?): (.*?) \(Lobby (\d+) (\w+) (.*?)\)/;
+            let match = line.match(regex);
+            if (match === null || match.length != 7) return [];
+            let date = match[1];
+            let time = match[2];
+            let server = match[3];
+            let lobbyId = match[4];
+            let gameMode = match[5];
+            let playersString = match[6];
+            let matchDatetime = moment(date + ' ' + time, 'MM/DD/YYYY HH:mm:ss');
+            let secondsDiff = moment().diff(matchDatetime, 'seconds');
+            // if (secondsDiff > 30 * 60) return;
+            let playersRegex = /\d:(\[U:\d:\d+])/g;
+            let playersMatch;
+            let steamIds = [];
+            while (playersMatch = playersRegex.exec(playersString)) {
+                let sid = playersMatch[1];
+                steamIds.push(sid);
+            }
+            return steamIds;
+        }
+
+        function core() {
+
+            playerTeamA = -1
+            playerTeamB = -1
+
+            let players = []
+            players = parseServerLog()
+
+            if (players.length > 0) {
+                for (var i = 0; i < players.length; i++) {
+
+                    var prop = players[i]
+
+                    if (prop == playerIDA) {
+                        if (i < players.length / 2) {
+                            playerTeamA = 0
+                        } else {
+                            playerTeamA = 1
+                        }
+                    }
+                    if (prop == playerIDB) {
+                        if (i < players.length / 2) {
+                            playerTeamB = 0
+                        } else {
+                            playerTeamB = 1
+                        }
+                    }
+
+                }
+
+                if (playerTeamA == playerTeamB) {
+                    var msg = new SpeechSynthesisUtterance('SUCCESS');
+                    window.speechSynthesis.speak(msg);
+                } else {
+                    var output = child_process.execSync('cmd.exe /c "taskkill /f /im dota2.exe"');
+                    var msg = new SpeechSynthesisUtterance('GABEN JEBAITED');
+                    window.speechSynthesis.speak(msg);
+                }
+
+            }
+
+
+
+
+        }
+
+        StartWatcher(serverlog_file)
+
+        core()
+    </script>
+
+</body>
+
+</html>
